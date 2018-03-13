@@ -3,8 +3,8 @@ raw_accord_data = generate_accord_raw_data()
 x_accord = raw_accord_data
 x_accord = impute.knn(as.matrix(x_accord))$data
 bp = read.sas7bdat("./bloodpressure.sas7bdat")
-x_6m_prior_accord = preprocess(x_accord,6,bp,calculate_cox_accord)
-x_12m_prior_accord = preprocess(x_accord,12,bp,calculate_cox_accord)
+x_6m_prior_accord = preprocess_accord(x_accord,6,bp,calculate_cox_accord)
+x_12m_prior_accord = preprocess_accord(x_accord,12,bp,calculate_cox_accord)
 x_6m_prior_sprint = x_6m_prior
 x_12m_prior_sprint = x_12m_prior
 
@@ -62,7 +62,7 @@ colnames(te_x) = colnames(tr_x)
 accord_static_rocs = c()
 for(i in 1:50)
 {
-models = simple_sampling_based_learner_glm(tr_x,tr_y)
+models = simple_sampling_based_learner(tr_x,tr_y)
 cv_results = predict(models,as.data.frame(te_x))
 fg = cv_results[te_y == 1]; bg = cv_results[te_y == 0]
 roc<-roc.curve(scores.class0 = fg, scores.class1 = bg,curve = TRUE)
@@ -76,7 +76,7 @@ colnames(te_x) = colnames(tr_x)
 accord_dynamic_12_t_rocs = c()
 for(i in 1:50)
 {
-models = simple_sampling_based_learner_glm(tr_x,tr_y)
+models = simple_sampling_based_learner(tr_x,tr_y)
 cv_results = predict(models,as.data.frame(te_x))
 fg = cv_results[te_y == 1]; bg = cv_results[te_y == 0]
 roc<-roc.curve(scores.class0 = fg, scores.class1 = bg,curve = TRUE)
@@ -89,7 +89,7 @@ colnames(te_x) = colnames(tr_x)
 accord_dynamic_6_t_rocs = c()
 for(i in 1:50)
 {
-models = simple_sampling_based_learner_glm(tr_x,tr_y)
+models = simple_sampling_based_learner(tr_x,tr_y)
 cv_results = predict(models,as.data.frame(te_x))
 fg = cv_results[te_y == 1]; bg = cv_results[te_y == 0]
 roc<-roc.curve(scores.class0 = fg, scores.class1 = bg,curve = TRUE)
@@ -105,7 +105,8 @@ model = c("Dynamic \n Multivariate \n (t=6)","Dynamic \n Multivariate \n (t=12)"
 df = data.frame(model,cv_mean_rocs,cv_sd_rocs)
 df[,1] = factor(df$"model",levels = df$"model")
 ggplot(df,aes(model,cv_mean_rocs,fill = model)) + geom_col(position = 'dodge') +
-coord_cartesian(ylim=c(0.5,0.8)) + ylab("AUC ROC for Primary Outcome") + xlab("Prediction Model") + 	theme(legend.position="none",axis.title.y =element_text(size=16),
+coord_cartesian(ylim=c(0.5,0.8)) + ylab("AUC ROC for Primary Outcome") + xlab("Prediction Model") + 
+ggtitle("Comparison of Dynamic vs. Static multivariate predictive models in CV event prediction for the ACCORD cohort \n(training set: SPRINT) ") +
+theme(legend.position="none",axis.title.y =element_text(size=16),
 axis.title.x = element_text(size=20),axis.text.x = element_text(size=14), text = element_text(size=22)) +
 geom_errorbar(aes(ymin=cv_mean_rocs-cv_sd_rocs, ymax=cv_mean_rocs+cv_sd_rocs),width=.1,size = 1,position=position_dodge(.9))
-
