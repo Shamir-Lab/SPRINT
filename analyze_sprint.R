@@ -49,6 +49,15 @@ res = run_predictor(y = y_cv_static,command = run_survival_cv_by_batch,args = li
 cv_static_rocs = res[1,]
 cv_static_concordance = res[2,]
 
+#run univariate AKI model
+aki_uni_predictors = c("INTENSIVE")
+y_aki_uni= x[,"AKI_ERS_EVNT"]
+res = run_predictor(y = y_aki_uni,command = run_survival_cv_by_batch,args = list(x,y_aki_uni,sample(c(1:10),nrow(x),replace=T),
+			list_of_predictors = aki_uni_predictors,prediction_algo="coxph",time = "AKI_ERS_DAYS",event = "AKI_ERS_EVNT"),
+			keep_concordance=T)
+aki_uni_rocs = res[1,]
+aki_uni_concordance = res[2,]
+
 #run static AKI model
 aki_static_predictors = c("INTENSIVE","RISK10YRS","N_AGENTS","SMOKE_3CAT","ASPIRIN","SUB_CKD","RACE_BLACK","AGE","FEMALE","SUB_CVD"
 				,"ETHNIC_WHITE_RACE","ETHNIC_HISPANIC","ETHNIC_OTHER","GLUR","TRR","UMALCR","BMI","STATIN","PP","HDL_CHR_RATIO","EGFR_SCREAT")
@@ -58,6 +67,17 @@ res = run_predictor(y = y_aki_static,command = run_survival_cv_by_batch,args = l
 			keep_concordance=T)
 aki_static_rocs = res[1,]
 aki_static_concordance = res[2,]
+
+#run static CKD model
+ckd_uni_predictors = c("INTENSIVE")
+x_ckd_uni = x[which(x[,"SUB_CKD"]==0 & !is.na(x[,"EVENT_30PERCENTREDUCTION_EGFR"])),]
+y_ckd_uni = x[which(x[,"SUB_CKD"]==0 & !is.na(x[,"EVENT_30PERCENTREDUCTION_EGFR"])),"EVENT_30PERCENTREDUCTION_EGFR"]
+res = run_predictor(y = y_ckd_uni,command = run_survival_cv_by_batch,args = list(x_ckd_uni,y_ckd_uni,sample(c(1:10),nrow(x_ckd_uni),replace=T),
+			list_of_predictors = ckd_uni_predictors,prediction_algo="coxph",time = "T_30PERCENTREDUCTION_EGFR",event = "EVENT_30PERCENTREDUCTION_EGFR"),
+			keep_concordance=T)
+ckd_uni_rocs = res[1,]
+ckd_uni_concordance = res[2,]
+
 
 #run static CKD model
 ckd_static_predictors = c("INTENSIVE","RISK10YRS","N_AGENTS","SMOKE_3CAT","ASPIRIN","RACE_BLACK","AGE","FEMALE","SUB_CVD","ETHNIC_WHITE_RACE",
@@ -95,17 +115,17 @@ cv_sd_rocs = c(sd(cv_dynamic_t_6_rocs),sd(cv_dynamic_t_12_rocs),sd(cv_static_roc
 model = c("Dynamic \n Multivariate \n (t=6)","Dynamic \n Multivariate \n (t=12)","Static \n Multivariate","Univariate")
 df = data.frame(model,cv_mean_rocs,cv_sd_rocs)
 df[,1] = factor(df$"model",levels = df$"model")
-ggplot(df,aes(model,cv_mean_rocs,fill = model)) + geom_col(position = 'dodge') +
-     coord_cartesian(ylim=c(0.5,0.8)) + ylab("AUC ROC for Primary Outcome") + xlab("Prediction Model") + 
-	theme(legend.position="none",text = element_text(size=22),axis.text.x =element_text(size=20)) +
+ggplot(df,aes(model,cv_mean_rocs,fill = model)) + geom_col(position = 'dodge')  +
+     coord_cartesian(ylim=c(0.5,0.8)) + ylab("AUC ROC for Primary CV Outcome") + xlab("Prediction Model") + 
+     ggtitle("Comparison of all predictive models in CV event prediction") + theme(legend.position="none",text = element_text(size=22),axis.text.x =element_text(size=20)) +
      geom_errorbar(aes(ymin=cv_mean_rocs-cv_sd_rocs, ymax=cv_mean_rocs+cv_sd_rocs),width=.1,size = 1,position=position_dodge(.9))
 
 #plot comparison for all static models
-performance = c(mean(cv_static_concordance),mean(cv_static_rocs),mean(cv_uni_concordance),mean(cv_uni_rocs),mean(ckd_static_cox_concordance)
-			,mean(ckd_static_cox_rocs),mean(ckd_uni_concordance),mean(ckd_uni_rocs),mean(aki_static_concordance),
+performance = c(mean(cv_static_concordance),mean(cv_static_rocs),mean(cv_uni_concordance),mean(cv_uni_rocs),mean(ckd_static_concordance)
+			,mean(ckd_static_rocs),mean(ckd_uni_concordance),mean(ckd_uni_rocs),mean(aki_static_concordance),
 			mean(aki_static_rocs),mean(aki_uni_concordance),mean(aki_uni_rocs))
-sd = c(sd(cv_static_concordance),sd(cv_static_rocs),sd(cv_uni_concordance),sd(cv_uni_rocs),sd(ckd_static_cox_concordance)
-			,sd(ckd_static_cox_rocs),sd(ckd_uni_concordance),sd(ckd_uni_rocs),sd(aki_static_concordance),
+sd = c(sd(cv_static_concordance),sd(cv_static_rocs),sd(cv_uni_concordance),sd(cv_uni_rocs),sd(ckd_static_concordance)
+			,sd(ckd_static_rocs),sd(ckd_uni_concordance),sd(ckd_uni_rocs),sd(aki_static_concordance),
 			sd(aki_static_rocs),sd(aki_uni_concordance),sd(aki_uni_rocs))
 performance_measure = c("concordance","AUC ROC","concordance","AUC ROC","concordance","AUC ROC","concordance","AUC ROC","concordance","AUC ROC","concordance","AUC ROC") 
 names_rocs = c("Primary Outcome","Primary Outcome","Primary Outcome","Primary Outcome","Chronic Kidney Disease"
@@ -117,16 +137,19 @@ df[,1] = factor(df$"names_rocs",levels = c("Primary Outcome","Chronic Kidney Dis
 df[,2] = factor(df$"model",levels = c("Multivariate","Univariate"))
 ggplot(df,aes(x = model,y = performance, fill = df$performance_measure)) + geom_col(position = 'dodge') +
 coord_cartesian(ylim=c(0.5,0.8)) + ylab("Performance Score") + xlab("Outcome Predicted") + 
-facet_wrap(~names_rocs, strip.position = "bottom", scales = "free_x") + 
+facet_wrap(~names_rocs, strip.position = "bottom", scales = "free_x") + scale_fill_discrete(name = "Performance measurement") +
 geom_errorbar(aes(ymin=performance-sd, ymax=performance+sd),width=.2,size = 1,position=position_dodge(.9))+
-theme(panel.margin = unit(0, "lines"), strip.background = element_blank(),text = element_text(size=18),legend.position="none")
+ggtitle(" Comparison of predictive models in CV and kidney event prediction \n Static Multivariate vs. Univariate") + theme(panel.margin = unit(0, "lines"), strip.background = element_blank(),text = element_text(size=18))
 
 # run treatment recommendation simulation
 # theta is the treatment cutoff, i.e., prediction value > 0.5: intensive treatment  
 # Lower theta- assuming higher sevirity for CV even. default theta = 0.5
 new_assignment = treatment_reccomendation(x,0.5)
+if("new_assignment" %in% colnames(x))
+{
+	x = x[,-which(colnames(x) == "new_assignment")]
+}
 x = cbind(x,new_assignment)
-
 time = "AKI_ERS_DAYS"
 event = "AKI_ERS_EVNT"
 batch_surv = Surv(x[,time],x[,event])
@@ -157,6 +180,6 @@ ggplot(df_data, aes(x=Groups, y=HR, ymin=HR_lower, ymax=HR_upper)) +
   	geom_errorbar(aes(ymin=HR_lower, ymax=HR_upper),width=.1,size = 1,position=position_dodge(.6),linetype=1) + 
   	scale_y_continuous(limits = c(0, 4),breaks = seq(0, 4, by = 1)) +
   	coord_flip() +
-  	theme_minimal() + theme(legend.position="none",axis.title.y =element_text(size=16),axis.title.x =element_text(size=14),
-				axis.text.x =element_text(size=14),axis.text.y =element_text(size=14))
+  	theme_minimal() + ggtitle("Hazard ratios for CV event and Renal failure between the recommended intensive and standard groups")+
+	theme(legend.position="none",axis.title.y =element_text(size=16),axis.title.x =element_text(size=14),axis.text.x =element_text(size=14),axis.text.y =element_text(size=14))
 
