@@ -1,28 +1,45 @@
 run_cv_by_batch<-function(x,y,b,classification_function=simple_sampling_based_learner,
-		prediction_args=list(probability=TRUE),class_of_interest = "1",method = "svm", ...){
-	y = as.factor(y)
+	prediction_args=list(type="response"),class_of_interest = "1",method = "svm", ...)
+{
+	if(class(y)=="matrix") events = y[,"status"] else  events = y 
+	weights = rep((table(events)[1]/length(events)),length(events))
+	weights[events==1] = table(events)[2]/length(events)
+	names(weights) = names(events)
+	if(method != "cox" & method != "binomial")
+	{ 
+		y = as.factor(y)
+	} else {
+		cv = cv.glmnet(x,y,family=method,alpha=1,weights=weights)
+	}
 	preds = c()
 	batches = unique(b)
 	for(batch in batches){
 		test_samples = which(b==batch)
-		tr_x = as.matrix(x[-test_samples,]);tr_y = y[-test_samples]
-		te_x = as.matrix(x[test_samples,]);te_y = y[test_samples]
-		batch_model = classification_function(tr_x,tr_y,...)
+		if(method != "cox")
+		{
+			tr_x = as.matrix(x[-test_samples,]);tr_y = y[-test_samples]
+			te_x = as.matrix(x[test_samples,]);te_y = y[test_samples]
+		} else { 
+			tr_x = as.matrix(x[-test_samples,]);tr_y = y[-test_samples,]
+			te_x = as.matrix(x[test_samples,]);te_y = y[test_samples,]
+		}
+		batch_model = classification_function(as.matrix(tr_x),tr_y,lambda = cv$lambda,weights=weights)
 		if(method=="glm") { te_x = as.data.frame(te_x)}
-		args = c(list(batch_model,te_x),prediction_args)
+		args = c(list(batch_model,te_x,cv$lambda.min),prediction_args)
 		batch_prediction_obj = do.call(predict,args=args)
 		dim(batch_prediction_obj)
 		te_x[setdiff(rownames(te_x),rownames(batch_prediction_obj)),]
 		if(class(batch_prediction_obj) == "factor")
 		{
 			batch_prediction_obj = getPredProbabilities(batch_prediction_obj)[,class_of_interest]
-		}		
+		}
 		names(batch_prediction_obj) = rownames(te_x)
 		preds = c(preds,batch_prediction_obj)
 	}
 	preds = preds[rownames(x)]
 	return(preds)
 }
+
 
 getPredProbabilities <- function(pred_obj){
 	if(class(pred_obj) == "numeric"){ return(pred_obj) }
@@ -35,13 +52,9 @@ getPredProbabilities <- function(pred_obj){
 	if (!is.null(probs)){return(probs)}
 	return (NULL)
 }
-run_survival_cv_by_batch<-function(x,y,b,list_of_predictors,prediction_args,prediction_algo="ranger",left_truncate,time,event, ...){
-	if(is.matrix(x) == TRUE)
-	{
-		x = as.data.frame(x)
-	}
-	predictors=''
-	predictors = paste(predictors,list_of_predictors,collapse="",sep="+")		
+run_survival_cv_by_batch<-function(x,y,b,list_of_predictors="INTENSIVE",prediction_algo="coxph",time,event, ...){
+	if(is.matrix(x)){x = as.data.frame(x)}
+	predictors = paste('',list_of_predictors,collapse="",sep="+")		
 	predictors = substr(predictors,2,nchar(predictors))
 	preds = c()
 	batches = unique(b)
@@ -60,7 +73,7 @@ run_survival_cv_by_batch<-function(x,y,b,list_of_predictors,prediction_args,pred
 		preds = c(preds,batch_predictions_obj)
 	}
 	preds = preds[rownames(x)]
-	return(c(preds,averageConcordance))
+	return(c(preds))
 }
 
 
@@ -78,7 +91,7 @@ run_coxph<-function(tr_x,te_x,predictors,time,event,prediction_algo=coxph){
 	return(batch_predictions_obj)
 }
 
-simple_sampling_based_learner<-function(x,y,d=NULL,func = run_glm,reps=10,max_num_samples = 300,...){
+simple_sampling_based_learner<-function(x,y,d=NULL,func = run_glmnet,reps=10,max_num_samples = 300,lambda=NULL,weights=NULL,...){
 	if(is.null(d)){
 		d = 1:nrow(x)
 		names(d) = rownames(x)
@@ -101,23 +114,40 @@ simple_sampling_based_learner<-function(x,y,d=NULL,func = run_glm,reps=10,max_nu
 		}
 		curr_samples = c(pos_sample,neg_sample,newbgcs)
 		curr_inds = is.element(rownames(x),curr_samples)
-		newy = y[curr_inds]
 		newx = x[curr_inds,]
-		classifiers[[i]] = func(newx,as.factor(newy),...)
+		if(identical(func,run_coxnet))
+		{
+			newy = y[curr_inds,]
+			classifiers[[i]] = func(newx,newy,lambda,weights,...)
+		} else {
+			newy = y[curr_inds]
+			classifiers[[i]] = func(newx,newy,lambda,weights,...)
+		}
 	}
 	obj = classifiers
 	class(obj) = "simple_sampling_based_learner"
 	return(obj)
 }
 
-get_coxph_model<-function(tr_x,tr_y,time,event,predictors)
+run_coxnet<-function(x,y,lambda,weights)
 {
-	batch_surv = Surv(tr_x[,time],tr_x[,event])
-	batch_model = coxph(as.formula(paste("batch_surv ~ ",predictors)),data=tr_x)
-	return(batch_model)
+	if(!is.null(weights))
+	{
+		model = glmnet(x,y,family="cox",alpha=1,lambda = lambda,weights = weights[rownames(y)])
+	} else {
+		model = glmnet(x,y,family="cox",alpha=1,lambda = lambda)
+	}
+	return(model)
 }
 
-run_glm <-function(x,y)
+
+run_glmnet <-function(x,y,lambda,weights)
+{
+	model = glmnet(x, y, alpha=1, family="binomial",lambda=lambda,weights = weights[names(y)])
+	return(model)
+}
+
+run_glm <-function(x,y,...)
 {
 	model = glm(y ~.,family=binomial(link='logit'),data=as.data.frame(x))
 	return(model)
