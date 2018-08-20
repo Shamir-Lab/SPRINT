@@ -1,7 +1,19 @@
 This code was developed using R version 3.4.1 and runs exclusively on the datasets from the SPRINT trial (NEJM 2015)
 This data can be requested through BioLINCC: https://biolincc.nhlbi.nih.gov/studies/sprint_pop/
 Needed libraries and their versions (more recent versions will probably work as well): ggplot2_2.2.1,sas7bdat_0.5,survival_2.41-3 impute_1.50.1,PRROC_1.3,rms_5.1-2
-This code assumes all datasets and scripts are in the current working directory (i.e. under "./")
+This code assumes all datasets and scripts are in the current working directory (i.e. under "./"). Namely the needed files are:
+baseline.csv
+outcomes.csv
+safety.csv
+bp.csv
+bloodpressure.sas7bdat
+accord_key.sas7bdat
+lipids.sas7bdat
+otherlabs.sas7bdat
+concomitantmeds.sas7bdat
+cvdoutcomes.sas7bdat
+f07_baselinehistoryphysicalexam.sas7bdat
+microvascularoutcomes.sas7bdat
 in order to reproduce the results correctly please execute the code as follows:
 1) run the source() function for the following scripts: 
 generate_sprint_raw_data.R
