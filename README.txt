@@ -14,4 +14,4 @@ run_predictor.R
 treatment_reccomendation.R
 (or run the first lines of "analyze_sprint.R")
 2) reproduce the results on the SPRINT database (including the treatment assignment simulation) by running "analyze_sprint.R" top to bottom
-3) reproduce the results on the ACCORD database by running "analyze_accord.R" top to bottom
+3) reproduce the results on the ACCORD database by running "analyze_accord.R" top to bottom (note that running "analyze_sprint.R" is obligatory before this step)
