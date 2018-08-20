@@ -1,7 +1,7 @@
 This code was developed using R version 3.4.1 and runs exclusively on the datasets from the SPRINT trial (NEJM 2015)
 This data can be requested through BioLINCC: https://biolincc.nhlbi.nih.gov/studies/sprint_pop/
 Needed libraries and their versions (more recent versions will probably work as well): ggplot2_2.2.1,sas7bdat_0.5,survival_2.41-3 impute_1.50.1,PRROC_1.3,rms_5.1-2
-This code assumes all datasets and scripts are in the current working directory (i.e. under "./"). Namely the needed files are:
+This code assumes all datasets and scripts are in the current working directory (i.e. under "./"). Namely the needed dataset files are:
 baseline.csv
 outcomes.csv
 safety.csv
